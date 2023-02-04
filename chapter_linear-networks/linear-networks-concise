@@ -1,0 +1,46 @@
+import numpy as np
+import torch
+from torch.utils import data
+from d2l import torch as d2l
+
+true_w = torch.tensor([2, -3.4])
+true_b = 4.2
+features, labels = d2l.synthetic_data(true_w, true_b, 1000)   #根据给出的 w b 真值，加上一个正态随机数，生成随机参数，内置的就是线性模型
+
+def load_array(data_arrays, batch_size, is_train=True):  #@save
+    """构造一个PyTorch数据迭代器"""
+    dataset = data.TensorDataset(*data_arrays)
+    return data.DataLoader(dataset, batch_size, shuffle=is_train)  #随机调取 batch_size 的数据集，shuffle 是需要打乱顺序的
+
+batch_size = 10
+print(type((features, labels)) )
+data_iter = load_array((features, labels), batch_size)
+
+next(iter(data_iter))   #batch_size = ? 的设定会影响这里迭代器的生成
+
+# nn是神经网络的缩写
+from torch import nn
+
+net = nn.Sequential(nn.Linear(2, 1))  #存放一个一个层的容器；(2,1)输入数据维度1，长度2，输出数据维度1，长度1
+
+net[0].weight.data.normal_(0, 0.01)
+net[0].bias.data.fill_(0)
+
+loss = nn.MSELoss()
+
+trainer = torch.optim.SGD(net.parameters(), lr=0.03)   #???net.parameters() 是什么？参数应该是给定模型的时候就有的现在看不清楚
+
+num_epochs = 3
+for epoch in range(num_epochs):   #这是啥意思？每一个 for in data_iter 都把全部数据跑了一遍？然后 epoch把全部数据跑了3边？
+    for X, y in data_iter:
+        l = loss(net(X) ,y)  #正向传播；net 这里自己带了模型参数，所以不用拿 WB 进去了
+        trainer.zero_grad()   #清零梯度？
+        l.backward()         #反向传播，计算梯度  $\nabla f(x)$ f(x) = loss(x)
+        trainer.step()          #看起来参数都是在 step 里面更新的
+    l = loss(net(features), labels)
+    print(f'epoch {epoch + 1}, loss {l:f}')
+
+w = net[0].weight.data
+print('w的估计误差：', true_w - w.reshape(true_w.shape))
+b = net[0].bias.data
+print('b的估计误差：', true_b - b)
